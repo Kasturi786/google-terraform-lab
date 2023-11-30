@@ -1,0 +1,47 @@
+name: Deploy
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - name: linux
+            ext: ''
+          - name: darwin
+            ext: ''
+          - name: windows
+            ext: '.exe'
+        arch:
+          - "386"
+          - amd64
+        exclude:
+          - os: darwin
+            arch: "386"
+      fail-fast: false
+    env:
+      GOOS: ${{ matrix.os.name }}
+      GOARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+      - name: Update environment
+        run: 'echo "VERSION=${GITHUB_REF#refs/tags/v}" >>  $GITHUB_ENV'
+      - name: Build
+        run: 'go build -ldflags="-X main.Version=${{ env.VERSION }}"'
+      - name: Upload
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: hcl2json${{ matrix.os.ext }}
+          asset_name: hcl2json_${{ matrix.os.name }}_${{ matrix.arch }}${{ matrix.os.ext }}
+          asset_content_type: application/octet-stream
